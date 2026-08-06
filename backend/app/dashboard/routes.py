@@ -51,14 +51,23 @@ async def get_dashboard_documents(
     with dynamic filter capabilities.
     """
     try:
+        # =====================================================================
+        # BACKEND/APP CHANGE SEPARATOR: DASHBOARD SORT & YEAR RANGE PARAMS
+        # =====================================================================
         documents, total_count = await DashboardService.get_paginated_documents(
             db=meta_db,
             page=params.page,
             page_size=params.page_size,
             filters=params.filters,
             search_query=params.search_query,
+            sort_order=params.sort_order,
+            from_year=params.from_year,
+            to_year=params.to_year,
             sync_with_disk=False  
         )
+        # =====================================================================
+        # END OF BACKEND/APP CHANGE SEPARATOR
+        # =====================================================================
 
         total_pages = math.ceil(total_count / params.page_size) if total_count > 0 else 0
 

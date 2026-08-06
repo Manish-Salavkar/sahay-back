@@ -38,6 +38,18 @@ class User(Base):
         default=True,
     )
 
+    # =====================================================================
+    # BACKEND/APP CHANGE SEPARATOR: USER APPROVAL STATUS
+    # =====================================================================
+    is_approved = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    # =====================================================================
+    # END OF BACKEND/APP CHANGE SEPARATOR
+    # =====================================================================
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -146,3 +158,18 @@ class MessageFeedback(Base):
     comments = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: ROLE SERVICE PERMISSION MODEL
+# =====================================================================
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    role = Column(String(30), nullable=False)  # officer | reviewer | translator | admin
+    service = Column(String(50), nullable=False)  # chatbot | dashboard
+    is_enabled = Column(Boolean, nullable=False, default=True)
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================

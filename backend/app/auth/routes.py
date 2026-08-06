@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -8,6 +8,10 @@ from app.auth.schemas import (
     CreateUser,
     LoginInput,
     BlacklistedTokenSubmit,
+    UserOut,
+    ApproveUserSchema,
+    UpdateUserRoleSchema,
+    TogglePermissionSchema,
 )
 from app.auth.services import (
     create_user_service,
@@ -15,9 +19,13 @@ from app.auth.services import (
     blacklist_token_service,
     toggle_user_status_service,
     get_current_user,
+    get_all_users_service,
+    approve_user_service,
+    update_user_role_service,
+    get_role_permissions_service,
+    toggle_role_permission_service,
+    get_user_accessible_services,
 )
-
-from app.auth.schemas import UserOut
 
 
 router = APIRouter(
@@ -133,3 +141,79 @@ async def protected_route(
         "user": current_user.full_name,
         "role": current_user.role,
     }
+
+
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: RBAC ADMIN ENDPOINTS
+# =====================================================================
+
+def check_admin(user: User):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+
+@router.get("/admin/users")
+async def get_admin_users(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    check_admin(current_user)
+    return await get_all_users_service(db)
+
+
+@router.patch("/admin/users/{user_id}/approve")
+async def approve_user_route(
+    user_id: int,
+    body: ApproveUserSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    check_admin(current_user)
+    res = await approve_user_service(db, user_id, body.is_approved)
+    await db.commit()
+    return res
+
+
+@router.patch("/admin/users/{user_id}/role")
+async def update_user_role_route(
+    user_id: int,
+    body: UpdateUserRoleSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    check_admin(current_user)
+    res = await update_user_role_service(db, user_id, body.role)
+    await db.commit()
+    return res
+
+
+@router.get("/admin/permissions")
+async def get_admin_permissions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    check_admin(current_user)
+    return await get_role_permissions_service(db)
+
+
+@router.post("/admin/permissions")
+async def toggle_admin_permission(
+    body: TogglePermissionSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    check_admin(current_user)
+    res = await toggle_role_permission_service(db, body.role, body.service, body.is_enabled)
+    await db.commit()
+    return res
+
+
+@router.get("/services/me")
+async def get_my_services(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_user_accessible_services(db, current_user)
+
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================

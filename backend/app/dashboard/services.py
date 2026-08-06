@@ -7,19 +7,17 @@ from app.chatbot.models import GRMetadata
 from app.chatbot.services import BASE_BACKEND_DIR
 
 # =====================================================================
-# CONFIGURABLE FILTER LIST
-# Add or remove column names here from GRMetadata table as needed.
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: CONFIGURABLE FILTER LIST
 # =====================================================================
 FILTERABLE_COLUMNS = [
     # "department",
     "status",
     "document_type",
-    "academic_year",
-    "financial_year",
-    # Add any additional columns here, e.g.:
-    # "business_type",
-    # "physical_type",
 ]
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================
 
 GR_FILES_DIR = os.path.join(BASE_BACKEND_DIR, "gr_files")
 
@@ -66,11 +64,14 @@ class DashboardService:
         page_size: int = 10,
         filters: Dict[str, Any] = None,
         search_query: str = None,
+        sort_order: str = "newest",
+        from_year: int = None,
+        to_year: int = None,
         sync_with_disk: bool = True
     ) -> Tuple[List[GRMetadata], int]:
         """
         Fetches documents from GRMetadata applying dynamic filters, keyword search, 
-        and disk-verification against gr_files.
+        year range filtering, and disk-verification against gr_files.
         """
         filters = filters or {}
         conditions = []
@@ -93,6 +94,19 @@ class DashboardService:
                     GRMetadata.pdf_name.ilike(term)
                 )
             )
+
+        # =====================================================================
+        # BACKEND/APP CHANGE SEPARATOR: YEAR RANGE FILTER (2015-2026)
+        # =====================================================================
+        if from_year or to_year:
+            year_expr = func.substr(GRMetadata.pdf_name, 1, 4)
+            if from_year:
+                conditions.append(year_expr >= str(from_year))
+            if to_year:
+                conditions.append(year_expr <= str(to_year))
+        # =====================================================================
+        # END OF BACKEND/APP CHANGE SEPARATOR
+        # =====================================================================
 
         # 3. Disk Sync Filter (Only include records where physical PDF exists in gr_files)
         if sync_with_disk:
@@ -118,11 +132,24 @@ class DashboardService:
         # Execute Paginated Query
         offset = (page - 1) * page_size
         
-        # FIX 2: Order by date descending, then pdf_name (since id doesn't exist)
-        data_stmt = data_stmt.order_by(
-            GRMetadata.date.desc(), 
-            GRMetadata.pdf_name.desc()
-        ).offset(offset).limit(page_size)
+        # =====================================================================
+        # BACKEND/APP CHANGE SEPARATOR: NEWEST FIRST / OLDEST FIRST SORTING
+        # =====================================================================
+        if sort_order == "oldest":
+            data_stmt = data_stmt.order_by(
+                GRMetadata.date.asc().nulls_last(), 
+                GRMetadata.pdf_name.asc()
+            )
+        else:
+            data_stmt = data_stmt.order_by(
+                GRMetadata.date.desc().nulls_last(), 
+                GRMetadata.pdf_name.desc()
+            )
+        # =====================================================================
+        # END OF BACKEND/APP CHANGE SEPARATOR
+        # =====================================================================
+
+        data_stmt = data_stmt.offset(offset).limit(page_size)
         
         result = await db.execute(data_stmt)
         documents = result.scalars().all()

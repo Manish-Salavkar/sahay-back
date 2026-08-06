@@ -13,6 +13,16 @@ class DocumentFilterParams(BaseModel):
         description="Dictionary of column-value filters, e.g., {'department': 'School Education', 'status': 'Active'}"
     )
 
+    # =====================================================================
+    # BACKEND/APP CHANGE SEPARATOR: DASHBOARD SORTING & YEAR RANGE FILTERS
+    # =====================================================================
+    sort_order: Optional[str] = Field(default="newest", description="Sort order: 'newest' or 'oldest'")
+    from_year: Optional[int] = Field(default=None, description="Filter documents from this 4-digit year (e.g. 2015)")
+    to_year: Optional[int] = Field(default=None, description="Filter documents up to this 4-digit year (e.g. 2026)")
+    # =====================================================================
+    # END OF BACKEND/APP CHANGE SEPARATOR
+    # =====================================================================
+
 class PaginatedDocumentsResponse(BaseModel):
     total_count: int
     page: int

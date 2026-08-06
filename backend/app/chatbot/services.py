@@ -29,8 +29,15 @@ LLM_MODEL = "gemma4:26b"
 LLM_URL = "https://ollama.manishsalavkar.me/api/chat"
 
 print("[STARTUP] Loading Embedding & Reranker models...")
-embedding_model = SentenceTransformer("BAAI/bge-m3")
-reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+try:
+    embedding_model = SentenceTransformer("BAAI/bge-m3", local_files_only=True)
+except Exception:
+    embedding_model = SentenceTransformer("BAAI/bge-m3")
+
+try:
+    reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", local_files_only=True)
+except Exception:
+    reranker_model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 BASE_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DB_PATH = os.environ.get(
@@ -444,6 +451,34 @@ INSTRUCTIONS:
 - Provide a concise executive summary by default (80-150 words).
 """
         return await RAGService.call_llm(system_prompt, query)
+
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: CHAT SESSION TITLE SUMMARIZATION
+# =====================================================================
+    @staticmethod
+    async def generate_session_title(query: str) -> str:
+        """
+        Summarizes user's initial chat prompt into a short 3-6 word session title.
+        """
+        try:
+            system_prompt = (
+                "You are an assistant that creates short, clear titles for chat conversations. "
+                "Summarize the user's prompt into a 3 to 6 word title. "
+                "Return ONLY the plain title text without quotes, markdown formatting, or punctuation at the end."
+            )
+            title = await RAGService.call_llm(system_prompt, query)
+            cleaned_title = title.strip().strip('"').strip("'").strip("`")
+            if cleaned_title and len(cleaned_title) <= 100:
+                return cleaned_title
+        except Exception as e:
+            print(f"[WARNING] Failed to generate session title: {e}")
+
+        # Fallback to query truncation
+        return query[:50] + "..." if len(query) > 50 else query
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================
+
 
 
     @staticmethod

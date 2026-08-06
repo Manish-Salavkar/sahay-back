@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text
 
 from app.config import DATABASE_URL, METADATA_DATABASE_URL
 
@@ -63,6 +64,9 @@ async def get_metadata_db():
 # ==============================================================================
 # INITIALIZATION
 # ==============================================================================
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: DB AUTO-COLUMN MIGRATION
+# =====================================================================
 async def init_db():
     """
     Creates tables for Auth models in maharashtra_ai.db.
@@ -72,5 +76,16 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    # We explicitly omit MetadataBase.metadata.create_all to ensure we are 
-    # strictly connecting to the pre-existing metadata database.
+        # Safely add missing columns to existing SQLite database tables
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT 0"))
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN department VARCHAR"))
+        except Exception:
+            pass  # Column already exists
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================

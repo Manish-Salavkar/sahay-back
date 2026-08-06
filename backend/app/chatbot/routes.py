@@ -118,13 +118,20 @@ async def process_chat_query(
             chat_history_dicts = [{"role": msg.role, "content": msg.content} for msg in previous_messages]
             
         else:
+            # =====================================================================
+            # BACKEND/APP CHANGE SEPARATOR: SUMMARIZED CHAT SESSION TITLE
+            # =====================================================================
+            session_title = await RAGService.generate_session_title(request.query)
             session = ChatSession(
                 user_id=current_user.id,
-                title=request.query[:50] + "..." if len(request.query) > 50 else request.query
+                title=session_title
             )
             auth_db.add(session)
             await auth_db.commit()
             await auth_db.refresh(session)
+            # =====================================================================
+            # END OF BACKEND/APP CHANGE SEPARATOR
+            # =====================================================================
 
         history_context = await RAGService.manage_chat_history(
             chat_history=chat_history_dicts,
@@ -397,3 +404,47 @@ async def submit_message_feedback(
     await auth_db.refresh(new_feedback)
     
     return {"status": "success", "message": "Feedback recorded successfully", "feedback_id": new_feedback.id}
+
+
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: CHAT SESSION DELETION ENDPOINT
+# =====================================================================
+@router.delete("/sessions/{session_id}")
+async def delete_chat_session(
+    session_id: int,
+    auth_db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes a specific chat session and all its associated messages and feedback from DB.
+    """
+    # 1. Verify that the chat session exists and belongs to current_user
+    stmt = select(ChatSession).where(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    )
+    result = await auth_db.execute(stmt)
+    session = result.scalars().first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found or unauthorized")
+
+    # 2. Clean up any related feedback records for this session
+    feedback_stmt = select(MessageFeedback).where(MessageFeedback.session_id == session_id)
+    feedback_res = await auth_db.execute(feedback_stmt)
+    feedbacks = feedback_res.scalars().all()
+    for fb in feedbacks:
+        await auth_db.delete(fb)
+
+    # 3. Delete session (SQLAlchemy relationship cascade deletes associated ChatMessage records)
+    await auth_db.delete(session)
+    await auth_db.commit()
+
+    return {
+        "status": "success",
+        "message": "Chat session and associated messages deleted successfully",
+        "session_id": session_id
+    }
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================

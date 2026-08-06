@@ -13,6 +13,9 @@ class UserBase(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
 
+    # =====================================================================
+    # BACKEND/APP CHANGE SEPARATOR: RBAC ROLE & DEPARTMENT FIELDS
+    # =====================================================================
     role: Literal[
         "admin",
         "officer",
@@ -21,6 +24,9 @@ class UserBase(BaseModel):
     ] = "officer"
 
     department: str | None = None
+    # =====================================================================
+    # END OF BACKEND/APP CHANGE SEPARATOR
+    # =====================================================================
 
     preferred_language: Literal[
         "en",
@@ -30,13 +36,32 @@ class UserBase(BaseModel):
 
     is_active: bool = True
 
+    # =====================================================================
+    # BACKEND/APP CHANGE SEPARATOR: USER APPROVAL STATUS
+    # =====================================================================
+    is_approved: bool = False
+    # =====================================================================
+    # END OF BACKEND/APP CHANGE SEPARATOR
+    # =====================================================================
+
 
 # ------------------------------------------------------------------------------
 # Create User
 # ------------------------------------------------------------------------------
 
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: RESTRICT SELF-REGISTRATION ROLES
+# =====================================================================
 class CreateUser(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
+    role: Literal[
+        "officer",
+        "reviewer",
+        "translator"
+    ] = "officer"
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================
 
 
 # ------------------------------------------------------------------------------
@@ -133,3 +158,28 @@ class FeedbackCreate(BaseModel):
     accuracy: Optional[int] = None
     citations_relevant: Optional[str] = None
     comments: Optional[str] = None
+
+
+# =====================================================================
+# BACKEND/APP CHANGE SEPARATOR: RBAC ADMIN SCHEMAS
+# =====================================================================
+class ApproveUserSchema(BaseModel):
+    is_approved: bool
+
+class UpdateUserRoleSchema(BaseModel):
+    role: Literal["admin", "officer", "reviewer", "translator"]
+
+class RolePermissionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    role: str
+    service: str
+    is_enabled: bool
+
+class TogglePermissionSchema(BaseModel):
+    role: Literal["admin", "officer", "reviewer", "translator"]
+    service: str
+    is_enabled: bool
+# =====================================================================
+# END OF BACKEND/APP CHANGE SEPARATOR
+# =====================================================================
